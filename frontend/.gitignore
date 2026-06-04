@@ -1,0 +1,10 @@
+node_modules
+dist
+release
+dist-ssr
+*.local
+.env
+.env.local
+.vscode
+.idea
+*.log
