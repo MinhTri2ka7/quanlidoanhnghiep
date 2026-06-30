@@ -11,7 +11,7 @@ public class Department {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(length = 100, unique = true, nullable = false)
+    @Column(length = 100, nullable = false)
     private String name;
 
     @Column(columnDefinition = "TEXT")
@@ -19,6 +19,9 @@ public class Department {
 
     @Column(name = "created_at")
     private LocalDateTime createdAt;
+
+    @Column(name = "company_id")
+    private Long companyId;
 
     @PrePersist
     public void prePersist() {
@@ -55,5 +58,13 @@ public class Department {
 
     public void setCreatedAt(LocalDateTime createdAt) {
         this.createdAt = createdAt;
+    }
+
+    public Long getCompanyId() {
+        return companyId;
+    }
+
+    public void setCompanyId(Long companyId) {
+        this.companyId = companyId;
     }
 }

@@ -11,6 +11,7 @@ public class UserDto {
     private String roleName;
     private String departmentName;
     private Boolean isTwoFactorEnabled;
+    private Long companyId;
 
     public UserDto() {
     }
@@ -85,5 +86,13 @@ public class UserDto {
 
     public void setIsTwoFactorEnabled(Boolean isTwoFactorEnabled) {
         this.isTwoFactorEnabled = isTwoFactorEnabled;
+    }
+
+    public Long getCompanyId() {
+        return companyId;
+    }
+
+    public void setCompanyId(Long companyId) {
+        this.companyId = companyId;
     }
 }

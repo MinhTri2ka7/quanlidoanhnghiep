@@ -26,11 +26,11 @@ public class User {
     @Column(length = 20)
     private String phone;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "role_id", nullable = false)
     private Role role;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "department_id")
     private Department department;
 
@@ -51,6 +51,9 @@ public class User {
 
     @Column(name = "two_factor_secret")
     private String twoFactorSecret;
+
+    @Column(name = "company_id")
+    private Long companyId;
 
     @PrePersist
     public void prePersist() {
@@ -178,5 +181,13 @@ public class User {
 
     public void setTwoFactorSecret(String twoFactorSecret) {
         this.twoFactorSecret = twoFactorSecret;
+    }
+
+    public Long getCompanyId() {
+        return companyId;
+    }
+
+    public void setCompanyId(Long companyId) {
+        this.companyId = companyId;
     }
 }

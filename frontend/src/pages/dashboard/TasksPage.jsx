@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import { getAllTasks, getAllUsers, getAllProjects, createTask, updateTaskStatus } from "../../utils/api.js";
+import { getAllTasks, getAllUsers, getAllProjects, createTask, updateTaskStatus, getTasksByUser } from "../../utils/api.js";
+import { useCurrentUser } from "../../utils/useCurrentUser.js";
 
 const statusConfig = {
   todo:       { label: "Todo",        colorStyle: { background: "var(--text-3)" } },
@@ -21,6 +22,11 @@ function TasksPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
 
+  // Get current user role permissions
+  const { user, isAdmin, isManager } = useCurrentUser();
+  const canMoveTask = isAdmin || isManager;
+  const [dragOverColumn, setDragOverColumn] = useState(null);
+
   // States for creating a task
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [newTitle, setNewTitle] = useState("");
@@ -39,43 +45,48 @@ function TasksPage() {
   // Load dynamic data on mount
   useEffect(() => {
     async function loadData() {
+      if (!user) return;
       setIsLoading(true);
       setError(null);
       try {
+        const tasksPromise = isAdmin 
+          ? getAllTasks() 
+          : getTasksByUser(user.id);
+
         const [tasksData, usersData, projectsData] = await Promise.all([
-          getAllTasks(),
+          tasksPromise,
           getAllUsers(),
           getAllProjects(),
         ]);
-
-        const mappedTasks = tasksData.map((t) => ({
-          id: t.id,
-          title: t.title,
-          description: t.description,
-          status: t.status || "todo",
-          priority: t.priority || "medium",
-          deadline: t.deadline ? t.deadline.substring(0, 10) : "Không có",
-          projectName: t.projectName,
-          assignedToName: t.assignedToName,
-          comments: Math.floor(Math.random() * 3),
-          labels: [t.priority === "high" ? "Khẩn cấp" : "Nghiệp vụ"],
-        }));
-
-        setTasks(mappedTasks);
-        setEmployees(usersData);
-        setProjects(projectsData);
-
-        if (projectsData.length > 0) setNewProjectId(projectsData[0].id.toString());
-        if (usersData.length > 0) setNewAssignedToId(usersData[0].id.toString());
-      } catch (err) {
-        setError(err.message || "Lỗi khi tải thông tin Tasks");
-      } finally {
-        setIsLoading(false);
-      }
-    }
-
-    loadData();
-  }, []);
+ 
+         const mappedTasks = tasksData.map((t) => ({
+           id: t.id,
+           title: t.title,
+           description: t.description,
+           status: t.status || "todo",
+           priority: t.priority || "medium",
+           deadline: t.deadline ? t.deadline.substring(0, 10) : "Không có",
+           projectName: t.projectName,
+           assignedToName: t.assignedToName,
+           comments: Math.floor(Math.random() * 3),
+           labels: [t.priority === "high" ? "Khẩn cấp" : "Nghiệp vụ"],
+         }));
+ 
+         setTasks(mappedTasks);
+         setEmployees(usersData);
+         setProjects(projectsData);
+ 
+         if (projectsData.length > 0) setNewProjectId(projectsData[0].id.toString());
+         if (usersData.length > 0) setNewAssignedToId(usersData[0].id.toString());
+       } catch (err) {
+         setError(err.message || "Lỗi khi tải thông tin Tasks");
+       } finally {
+         setIsLoading(false);
+       }
+     }
+ 
+     loadData();
+  }, [user, isAdmin]);
 
   async function handleCreateTask(event) {
     event.preventDefault();
@@ -127,6 +138,20 @@ function TasksPage() {
     }
   }
 
+  function handleDragStart(e, taskId) {
+    e.dataTransfer.setData("text/plain", taskId.toString());
+    e.dataTransfer.effectAllowed = "move";
+  }
+
+  async function handleDrop(e, targetStatus) {
+    e.preventDefault();
+    setDragOverColumn(null);
+    const taskIdStr = e.dataTransfer.getData("text/plain");
+    if (!taskIdStr) return;
+    const taskId = parseInt(taskIdStr, 10);
+    await moveTask(taskId, targetStatus);
+  }
+
   const tasksByStatus = {
     todo:       tasks.filter((t) => t.status === "todo"),
     inProgress: tasks.filter((t) => t.status === "inProgress"),
@@ -146,17 +171,19 @@ function TasksPage() {
             Quản lý và điều phối tasks trong hệ thống
           </p>
         </div>
-        <button
-          onClick={() => setIsCreateModalOpen(true)}
-          className="btn-primary"
-          style={{ width: "auto", padding: "0 14px", gap: 6, display: "flex", alignItems: "center" }}
-        >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <line x1="12" y1="5" x2="12" y2="19" />
-            <line x1="5" y1="12" x2="19" y2="12" />
-          </svg>
-          Tạo Task
-        </button>
+        {isAdmin && (
+          <button
+            onClick={() => setIsCreateModalOpen(true)}
+            className="btn-primary"
+            style={{ width: "auto", padding: "0 14px", gap: 6, display: "flex", alignItems: "center" }}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <line x1="12" y1="5" x2="12" y2="19" />
+              <line x1="5" y1="12" x2="19" y2="12" />
+            </svg>
+            Tạo Task
+          </button>
+        )}
       </div>
 
       {/* Loading state */}
@@ -209,20 +236,27 @@ function TasksPage() {
 
                 {/* Tasks container */}
                 <div
+                  onDragOver={(e) => { if (canMoveTask) e.preventDefault(); }}
+                  onDragEnter={() => { if (canMoveTask) setDragOverColumn(status); }}
+                  onDragLeave={() => { if (canMoveTask) setDragOverColumn(null); }}
+                  onDrop={(e) => { if (canMoveTask) handleDrop(e, status); }}
                   style={{
                     display: "flex",
                     flexDirection: "column",
                     gap: 8,
                     minHeight: 200,
-                    background: "var(--surface-2)",
+                    background: dragOverColumn === status ? "color-mix(in srgb, var(--accent) 8%, var(--surface-2))" : "var(--surface-2)",
+                    border: dragOverColumn === status ? "1px dashed var(--accent)" : "1px dashed var(--border)",
                     padding: 8,
                     borderRadius: 10,
-                    border: "1px dashed var(--border)",
+                    transition: "all 0.2s ease",
                   }}
                 >
                   {statusTasks.map((task) => (
                     <div
                       key={task.id}
+                      draggable={canMoveTask}
+                      onDragStart={(e) => { if (canMoveTask) handleDragStart(e, task.id); }}
                       style={{
                         background: "var(--surface)",
                         border: hoveredTaskId === task.id
@@ -231,6 +265,7 @@ function TasksPage() {
                         borderRadius: 8,
                         padding: 12,
                         transition: "border-color 0.15s",
+                        cursor: canMoveTask ? "grab" : "default",
                       }}
                       onMouseEnter={() => setHoveredTaskId(task.id)}
                       onMouseLeave={() => setHoveredTaskId(null)}
@@ -242,6 +277,7 @@ function TasksPage() {
                         </span>
                         <select
                           value={task.status}
+                          disabled={!canMoveTask}
                           onChange={(e) => moveTask(task.id, e.target.value)}
                           style={{
                             background: "var(--surface-2)",
@@ -251,6 +287,8 @@ function TasksPage() {
                             fontSize: 11,
                             color: "var(--text)",
                             outline: "none",
+                            cursor: canMoveTask ? "pointer" : "not-allowed",
+                            opacity: canMoveTask ? 1 : 0.6,
                           }}
                         >
                           <option value="todo">Todo</option>
@@ -418,10 +456,10 @@ function TasksPage() {
                     </select>
                   </div>
                   <div>
-                    <label className="field-label" htmlFor="task-assignee">Người thực hiện <span style={{ color: "var(--danger)" }}>*</span></label>
+                    <label className="field-label" htmlFor="task-assignee">Giao cho Manager <span style={{ color: "var(--danger)" }}>*</span></label>
                     <select id="task-assignee" className="field-input"
                       value={newAssignedToId} onChange={e => setNewAssignedToId(e.target.value)}>
-                      {employees.map(emp => <option key={emp.id} value={emp.id}>{emp.fullname}</option>)}
+                      {employees.filter(emp => emp.roleName === "Manager").map(emp => <option key={emp.id} value={emp.id}>{emp.fullname}</option>)}
                     </select>
                   </div>
                 </div>

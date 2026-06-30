@@ -58,11 +58,11 @@ export async function apiFetch(url, options = {}) {
   // 4. Xử lý Hết hạn phiên (401 Unauthorized)
   if (response.status === 401) {
     // Nếu không phải đang ở trang đăng nhập -> cưỡng bức logout
-    if (!window.location.pathname.includes("/login")) {
+    if (!window.location.hash.includes("/login")) {
       localStorage.removeItem("user");
       localStorage.removeItem("access_token");
       localStorage.removeItem("refresh_token");
-      window.location.href = "/login";
+      window.location.hash = "/login";
       throw new Error("Phiên làm việc đã hết hạn. Vui lòng đăng nhập lại.");
     }
   }
@@ -146,7 +146,7 @@ export async function logoutUser() {
     localStorage.removeItem("user");
     localStorage.removeItem("access_token");
     localStorage.removeItem("refresh_token");
-    window.location.href = "/login";
+    window.location.hash = "/login";
   }
 }
 
@@ -189,9 +189,15 @@ export async function createUser(userData) {
 }
 
 export async function updateUser(id, userData) {
+  // Nếu departmentId là null → gửi flag removeDepartment = true để backend xóa department
+  const payload = { ...userData };
+  if (Object.prototype.hasOwnProperty.call(userData, "departmentId") && userData.departmentId === null) {
+    delete payload.departmentId;
+    payload.removeDepartment = true;
+  }
   const response = await apiFetch(`${API_BASE}/user/${id}`, {
     method: "PUT",
-    body: JSON.stringify(userData),
+    body: JSON.stringify(payload),
   });
   if (!response.ok) throw new Error("Lỗi khi cập nhật user");
   return response.json();
@@ -233,6 +239,23 @@ export async function getDepartmentById(id) {
   return response.json();
 }
 
+export async function createDepartment(departmentData) {
+  const response = await apiFetch(`${API_BASE}/department`, {
+    method: "POST",
+    body: JSON.stringify(departmentData),
+  });
+  if (!response.ok) throw new Error("Lỗi khi tạo phòng ban");
+  return response.json();
+}
+
+export async function deleteDepartment(id) {
+  const response = await apiFetch(`${API_BASE}/department/${id}`, {
+    method: "DELETE",
+  });
+  if (!response.ok) throw new Error("Lỗi khi xóa phòng ban");
+  return response.json();
+}
+
 // =================== PROJECT ===================
 
 export async function getAllProjects() {
@@ -247,6 +270,41 @@ export async function getProjectById(id) {
   return response.json();
 }
 
+export async function createProject(projectData, createdBy = 1) {
+  const response = await apiFetch(`${API_BASE}/project?createdBy=${createdBy}`, {
+    method: "POST",
+    body: JSON.stringify(projectData),
+  });
+  if (!response.ok) throw new Error("Lỗi khi tạo dự án");
+  return response.json();
+}
+
+export async function updateProject(id, projectData) {
+  const response = await apiFetch(`${API_BASE}/project/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(projectData),
+  });
+  if (!response.ok) throw new Error("Lỗi khi cập nhật dự án");
+  return response.json();
+}
+
+export async function updateProjectStatus(id, status) {
+  const response = await apiFetch(`${API_BASE}/project/${id}/status`, {
+    method: "PATCH",
+    body: JSON.stringify({ status }),
+  });
+  if (!response.ok) throw new Error("Lỗi khi cập nhật trạng thái dự án");
+  return response.json();
+}
+
+export async function deleteProject(id) {
+  const response = await apiFetch(`${API_BASE}/project/${id}`, {
+    method: "DELETE",
+  });
+  if (!response.ok) throw new Error("Lỗi khi xóa dự án");
+  return response.json();
+}
+
 // =================== TASK ===================
 
 export async function getAllTasks() {
@@ -258,6 +316,12 @@ export async function getAllTasks() {
 export async function getTasksByProject(projectId) {
   const response = await apiFetch(`${API_BASE}/task/project/${projectId}`);
   if (!response.ok) throw new Error("Lỗi khi lấy danh sách task theo dự án");
+  return response.json();
+}
+
+export async function getProjectMembers(projectId) {
+  const response = await apiFetch(`${API_BASE}/project/${projectId}/members`);
+  if (!response.ok) throw new Error("Lỗi khi lấy danh sách thành viên dự án");
   return response.json();
 }
 
@@ -322,6 +386,255 @@ export async function disable2fa(userId, code) {
   const data = await response.json();
   if (!response.ok) {
     throw new Error(data.error || "Tắt 2FA thất bại");
+  }
+  return data;
+}
+
+export async function uploadAvatar(file) {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  const response = await apiFetch(`${API_BASE}/upload/avatar`, {
+    method: "POST",
+    body: formData,
+  });
+
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.error || "Tải ảnh lên thất bại");
+  }
+  return data;
+}
+
+export async function uploadProjectDocument(projectId, file) {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  const response = await apiFetch(`${API_BASE}/project/${projectId}/document`, {
+    method: "POST",
+    body: formData,
+  });
+
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.error || "Tải tài liệu lên thất bại");
+  }
+  return data;
+}
+
+export async function getProjectDocuments(projectId) {
+  const response = await apiFetch(`${API_BASE}/project/${projectId}/document`);
+  if (!response.ok) {
+    throw new Error("Lỗi khi lấy danh sách tài liệu dự án");
+  }
+  return response.json();
+}
+
+export async function deleteProjectDocument(documentId) {
+  const response = await apiFetch(`${API_BASE}/project/document/${documentId}`, {
+    method: "DELETE",
+  });
+
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.error || "Xóa tài liệu thất bại");
+  }
+  return data;
+}
+
+export async function getStorageSize() {
+  const response = await apiFetch(`${API_BASE}/upload/storage-size`);
+  if (!response.ok) {
+    throw new Error("Lỗi khi lấy thông tin dung lượng lưu trữ");
+  }
+  const data = await response.json();
+  return data.totalSizeBytes;
+}
+
+export async function addProjectMember(projectId, userId) {
+  const response = await apiFetch(`${API_BASE}/project/${projectId}/members`, {
+    method: "POST",
+    body: JSON.stringify({ userId }),
+  });
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.error || "Thêm thành viên vào dự án thất bại");
+  }
+  return data;
+}
+
+export async function removeProjectMember(projectId, userId) {
+  const response = await apiFetch(`${API_BASE}/project/${projectId}/members/${userId}`, {
+    method: "DELETE",
+  });
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.error || "Xóa thành viên khỏi dự án thất bại");
+  }
+  return data;
+}
+
+// =================== CHAT & FRIENDSHIP ===================
+
+export async function getChatRooms() {
+  const response = await apiFetch(`${API_BASE}/chat/rooms`);
+  if (!response.ok) {
+    throw new Error("Lỗi khi lấy danh sách phòng chat");
+  }
+  return response.json();
+}
+
+export async function getRoomMessages(roomId, keyword = "") {
+  const query = keyword ? `?keyword=${encodeURIComponent(keyword)}` : "";
+  const response = await apiFetch(`${API_BASE}/chat/rooms/${roomId}/messages${query}`);
+  if (!response.ok) {
+    throw new Error("Lỗi khi lấy lịch sử tin nhắn");
+  }
+  return response.json();
+}
+
+export async function createPrivateRoom(otherUserId) {
+  const response = await apiFetch(`${API_BASE}/chat/rooms/private`, {
+    method: "POST",
+    body: JSON.stringify({ otherUserId }),
+  });
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.error || "Lỗi khi tạo phòng chat cá nhân");
+  }
+  return data;
+}
+
+export async function createGroupRoom(name, memberIds) {
+  const response = await apiFetch(`${API_BASE}/chat/rooms/group`, {
+    method: "POST",
+    body: JSON.stringify({ name, memberIds }),
+  });
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.error || "Lỗi khi tạo nhóm chat");
+  }
+  return data;
+}
+
+export async function updateGroupName(roomId, name) {
+  const response = await apiFetch(`${API_BASE}/chat/rooms/group/${roomId}`, {
+    method: "PUT",
+    body: JSON.stringify({ name }),
+  });
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.error || "Lỗi khi đổi tên nhóm");
+  }
+  return data;
+}
+
+export async function addGroupMembers(roomId, userIds) {
+  const response = await apiFetch(`${API_BASE}/chat/rooms/group/${roomId}/members`, {
+    method: "POST",
+    body: JSON.stringify({ userIds }),
+  });
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.error || "Lỗi khi thêm thành viên nhóm");
+  }
+  return data;
+}
+
+export async function removeGroupMember(roomId, userId) {
+  const response = await apiFetch(`${API_BASE}/chat/rooms/group/${roomId}/members/${userId}`, {
+    method: "DELETE",
+  });
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.error || "Lỗi khi xóa thành viên nhóm");
+  }
+  return data;
+}
+
+export async function updateGroupMemberRole(roomId, userId, role) {
+  const response = await apiFetch(`${API_BASE}/chat/rooms/group/${roomId}/members/${userId}/role`, {
+    method: "PUT",
+    body: JSON.stringify({ role }),
+  });
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.error || "Lỗi khi thay đổi quyền hạn");
+  }
+  return data;
+}
+
+export async function getFriends() {
+  const response = await apiFetch(`${API_BASE}/chat/friends`);
+  if (!response.ok) {
+    throw new Error("Lỗi khi tải danh sách bạn bè");
+  }
+  return response.json();
+}
+
+export async function getPendingFriendRequests() {
+  const response = await apiFetch(`${API_BASE}/chat/friends/pending`);
+  if (!response.ok) {
+    throw new Error("Lỗi khi tải yêu cầu kết bạn");
+  }
+  return response.json();
+}
+
+export async function sendFriendRequest(email) {
+  const response = await apiFetch(`${API_BASE}/chat/friends/request`, {
+    method: "POST",
+    body: JSON.stringify({ email }),
+  });
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.error || "Lỗi khi gửi lời mời kết bạn");
+  }
+  return data;
+}
+
+export async function acceptFriendRequest(requestId) {
+  const response = await apiFetch(`${API_BASE}/chat/friends/request/${requestId}/accept`, {
+    method: "POST",
+  });
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.error || "Lỗi khi chấp nhận kết bạn");
+  }
+  return data;
+}
+
+export async function rejectFriendRequest(requestId) {
+  const response = await apiFetch(`${API_BASE}/chat/friends/request/${requestId}/reject`, {
+    method: "POST",
+  });
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.error || "Lỗi khi từ chối kết bạn");
+  }
+  return data;
+}
+
+export async function searchFriendByEmail(email) {
+  const response = await apiFetch(`${API_BASE}/chat/friends/search?email=${encodeURIComponent(email)}`);
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.error || "Lỗi khi tìm kiếm người dùng");
+  }
+  return data;
+}
+
+export async function uploadChatAttachment(file) {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  const response = await apiFetch(`${API_BASE}/chat/upload`, {
+    method: "POST",
+    body: formData,
+  });
+
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.error || "Tải tệp đính kèm lên thất bại");
   }
   return data;
 }

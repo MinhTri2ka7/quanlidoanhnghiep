@@ -70,6 +70,16 @@ public class TaskDto {
         this.projectName = projectName;
     }
 
+    private Long assignedToId;
+
+    public Long getAssignedToId() {
+        return assignedToId;
+    }
+
+    public void setAssignedToId(Long assignedToId) {
+        this.assignedToId = assignedToId;
+    }
+
     public String getAssignedToName() {
         return assignedToName;
     }

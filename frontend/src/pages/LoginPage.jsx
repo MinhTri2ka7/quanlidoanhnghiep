@@ -41,7 +41,7 @@ function LoginPage() {
         return;
       }
 
-      localStorage.setItem("user", JSON.stringify(userData));
+      localStorage.setItem("user", JSON.stringify(userData.user));
       setFeedback({ msg: "Đăng nhập thành công. Đang chuyển hướng...", type: "success" });
       setTimeout(() => navigate("/dashboard"), 600);
     } catch (err) {
@@ -62,7 +62,7 @@ function LoginPage() {
     try {
       const { verify2faLogin } = await import("../utils/api.js");
       const userData = await verify2faLogin(email, twoFactorCode.trim());
-      localStorage.setItem("user", JSON.stringify(userData));
+      localStorage.setItem("user", JSON.stringify(userData.user));
       setFeedback({ msg: "Xác thực 2FA thành công. Đang kết nối...", type: "success" });
       setTimeout(() => navigate("/dashboard"), 600);
     } catch (err) {

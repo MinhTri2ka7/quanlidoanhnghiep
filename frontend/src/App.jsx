@@ -11,7 +11,7 @@ import EmployeesPage from "./pages/dashboard/EmployeesPage.jsx";
 import EmployeeDetailPage from "./pages/dashboard/EmployeeDetailPage.jsx";
 import ProjectsPage from "./pages/dashboard/ProjectsPage.jsx";
 import ProjectDetailPage from "./pages/dashboard/ProjectDetailPage.jsx";
-import TasksPage from "./pages/dashboard/TasksPage.jsx";
+
 import ChatPage from "./pages/dashboard/ChatPage.jsx";
 import AnalyticsPage from "./pages/dashboard/AnalyticsPage.jsx";
 import SecurityPage from "./pages/dashboard/SecurityPage.jsx";
@@ -48,8 +48,7 @@ function App() {
         <Route path="projects" element={<ProjectsPage />} />
         <Route path="projects/:projectId" element={<ProjectDetailPage />} />
 
-        {/* Task Level */}
-        <Route path="tasks" element={<TasksPage />} />
+
 
         {/* Communication */}
         <Route path="chat" element={<ChatPage />} />

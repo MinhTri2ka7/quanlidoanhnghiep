@@ -1,6 +1,9 @@
+import { useState, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
+import { useCurrentUser } from "../../utils/useCurrentUser.js";
 
-const NAV = [
+// NAV theo từng role
+const NAV_ADMIN = [
   {
     section: "Tổng quan",
     items: [{ path: "/dashboard", label: "Dashboard", icon: "home", exact: true }],
@@ -8,10 +11,9 @@ const NAV = [
   {
     section: "Quản lý",
     items: [
-      { path: "/dashboard/employees", label: "Nhân viên", icon: "employees" },
+      { path: "/dashboard/employees", label: "Nhân viên",  icon: "employees" },
       { path: "/dashboard/teams",     label: "Phòng ban",  icon: "teams"     },
       { path: "/dashboard/projects",  label: "Dự án",      icon: "projects"  },
-      { path: "/dashboard/tasks",     label: "Công việc",  icon: "tasks"     },
     ],
   },
   {
@@ -20,6 +22,46 @@ const NAV = [
       { path: "/dashboard/analytics", label: "Phân tích",  icon: "analytics" },
       { path: "/dashboard/chat",      label: "Tin nhắn",   icon: "chat"      },
       { path: "/dashboard/settings",  label: "Cài đặt",    icon: "settings"  },
+    ],
+  },
+];
+
+const NAV_MANAGER = [
+  {
+    section: "Tổng quan",
+    items: [{ path: "/dashboard", label: "Dashboard", icon: "home", exact: true }],
+  },
+  {
+    section: "Công việc",
+    items: [
+      { path: "/dashboard/projects", label: "Dự án",     icon: "projects" },
+    ],
+  },
+  {
+    section: "Hệ thống",
+    items: [
+      { path: "/dashboard/chat",     label: "Tin nhắn",  icon: "chat"     },
+      { path: "/dashboard/settings", label: "Cài đặt",   icon: "settings" },
+    ],
+  },
+];
+
+const NAV_EMPLOYEE = [
+  {
+    section: "Tổng quan",
+    items: [{ path: "/dashboard", label: "Dashboard", icon: "home", exact: true }],
+  },
+  {
+    section: "Công việc",
+    items: [
+      { path: "/dashboard/projects", label: "Dự án", icon: "projects" },
+    ],
+  },
+  {
+    section: "Hệ thống",
+    items: [
+      { path: "/dashboard/chat",     label: "Tin nhắn", icon: "chat"     },
+      { path: "/dashboard/settings", label: "Cài đặt",  icon: "settings" },
     ],
   },
 ];
@@ -37,7 +79,11 @@ const ICONS = {
 
 function Sidebar({ isCollapsed, onToggleCollapse }) {
   const location = useLocation();
-  const navigate = useNavigate();
+  const navigate  = useNavigate();
+  const { user, isAdmin, isManager } = useCurrentUser();
+
+  // Chọn menu theo role
+  const NAV = isAdmin ? NAV_ADMIN : isManager ? NAV_MANAGER : NAV_EMPLOYEE;
 
   function isActive({ path, exact }) {
     return exact ? location.pathname === path : location.pathname.startsWith(path);
@@ -48,9 +94,12 @@ function Sidebar({ isCollapsed, onToggleCollapse }) {
     navigate("/login");
   }
 
-  const user = (() => {
-    try { return JSON.parse(localStorage.getItem("user")); } catch { return null; }
-  })();
+  // Hiển thị badge role
+  const roleBadge = isAdmin
+    ? { label: "Admin", color: "#EF4444" }
+    : isManager
+    ? { label: "Manager", color: "#F59E0B" }
+    : { label: "Employee", color: "#10B981" };
 
   return (
     <aside style={{
@@ -112,11 +161,32 @@ function Sidebar({ isCollapsed, onToggleCollapse }) {
       <div style={{ borderTop: "1px solid var(--border)", padding: "12px 8px", flexShrink: 0 }}>
         {!isCollapsed && user && (
           <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 10px", marginBottom: 4 }}>
-            <div style={{ width: 26, height: 26, borderRadius: 6, flexShrink: 0, background: "var(--accent-bg)", color: "var(--accent)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: 11 }}>
-              {(user.fullname || user.email || "?")[0].toUpperCase()}
+            <div style={{ 
+              width: 26, height: 26, borderRadius: 6, flexShrink: 0, 
+              background: "var(--accent-bg)", color: "var(--accent)", 
+              display: "flex", alignItems: "center", justifyContent: "center", 
+              fontWeight: 700, fontSize: 11, overflow: "hidden" 
+            }}>
+              {user.avatar && (user.avatar.startsWith("http://") || user.avatar.startsWith("https://") || user.avatar.includes("/")) ? (
+                <img src={user.avatar} alt="Avatar" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+              ) : (
+                (user.fullname || user.email || "?")[0].toUpperCase()
+              )}
             </div>
-            <div style={{ fontSize: 12, fontWeight: 500, color: "var(--text)", flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-              {user.fullname || user.email}
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 12, fontWeight: 500, color: "var(--text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {user.fullname || user.email}
+              </div>
+              <div style={{ 
+                display: "inline-block", marginTop: 2,
+                fontSize: 9, fontWeight: 700, letterSpacing: "0.05em",
+                color: roleBadge.color,
+                background: roleBadge.color + "20",
+                border: `1px solid ${roleBadge.color}40`,
+                borderRadius: 4, padding: "1px 5px",
+              }}>
+                {roleBadge.label}
+              </div>
             </div>
             <button onClick={handleLogout} title="Đăng xuất" style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-3)", padding: 2, flexShrink: 0 }}>
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

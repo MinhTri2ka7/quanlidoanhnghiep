@@ -46,13 +46,13 @@ public class AuthController {
 
     @Autowired
     private EmailService emailService;
-
     @Autowired
     private StringRedisTemplate redisTemplate;
 
     /**
      * API Đăng nhập truyền thống (Email + Password)
      */
+
     @PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody Map<String, String> loginRequest, 
                                    @RequestHeader(value = "X-Device-ID", required = false, defaultValue = "default-device") String deviceId) {
@@ -245,6 +245,7 @@ public class AuthController {
         response.setAvatar(dbUser.getAvatar());
         response.setIsActive(dbUser.getIsActive());
         response.setIsTwoFactorEnabled(dbUser.getIsTwoFactorEnabled());
+        response.setCompanyId(dbUser.getCompanyId());
 
         if (dbUser.getRole() != null) {
             response.setRoleName(dbUser.getRole().getName());

@@ -31,8 +31,21 @@ public class Project {
     @JoinColumn(name = "created_by")
     private User createdBy;
 
+    @ManyToOne
+    @JoinColumn(name = "manager_id")
+    private User manager;
+
+    @Column(name = "roadmap", columnDefinition = "TEXT")
+    private String roadmap;
+
+    @Column(name = "notes", columnDefinition = "TEXT")
+    private String notes;
+
     @Column(name = "created_at")
     private LocalDateTime createdAt;
+
+    @Column(name = "company_id")
+    private Long companyId;
 
     @PrePersist
     public void prePersist() {
@@ -95,11 +108,43 @@ public class Project {
         this.createdBy = createdBy;
     }
 
+    public User getManager() {
+        return manager;
+    }
+
+    public void setManager(User manager) {
+        this.manager = manager;
+    }
+
+    public String getRoadmap() {
+        return roadmap;
+    }
+
+    public void setRoadmap(String roadmap) {
+        this.roadmap = roadmap;
+    }
+
+    public String getNotes() {
+        return notes;
+    }
+
+    public void setNotes(String notes) {
+        this.notes = notes;
+    }
+
     public LocalDateTime getCreatedAt() {
         return createdAt;
     }
 
     public void setCreatedAt(LocalDateTime createdAt) {
         this.createdAt = createdAt;
+    }
+
+    public Long getCompanyId() {
+        return companyId;
+    }
+
+    public void setCompanyId(Long companyId) {
+        this.companyId = companyId;
     }
 }

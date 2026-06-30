@@ -14,8 +14,17 @@ public class DepartmentService {
     @Autowired
     private DepartmentRepo departmentRepo;
 
+    @Autowired
+    private com.quanlydn.repository.UserRepo userRepo;
+
     public List<DepartmentDto> getAllDepartments() {
-        List<Department> departments = departmentRepo.findAll();
+        Long companyId = com.quanlydn.util.SecurityUtil.getCurrentCompanyId();
+        List<Department> departments;
+        if (companyId != null) {
+            departments = departmentRepo.findByCompanyId(companyId);
+        } else {
+            departments = departmentRepo.findAll();
+        }
 
         return departments.stream()
                 .map(this::toDto)
@@ -30,13 +39,21 @@ public class DepartmentService {
     }
 
     public DepartmentDto createDepartment(DepartmentDto dto) {
-        if (departmentRepo.existsByName(dto.getName())) {
-            throw new RuntimeException("Department đã tồn tại: " + dto.getName());
+        Long companyId = com.quanlydn.util.SecurityUtil.getCurrentCompanyId();
+        if (companyId != null) {
+            if (departmentRepo.existsByNameAndCompanyId(dto.getName(), companyId)) {
+                throw new RuntimeException("Department đã tồn tại trong công ty này: " + dto.getName());
+            }
+        } else {
+            if (departmentRepo.existsByName(dto.getName())) {
+                throw new RuntimeException("Department đã tồn tại: " + dto.getName());
+            }
         }
 
         Department department = new Department();
         department.setName(dto.getName());
         department.setDescription(dto.getDescription());
+        department.setCompanyId(companyId);
 
         Department saved = departmentRepo.save(department);
         return toDto(saved);
@@ -61,6 +78,12 @@ public class DepartmentService {
     }
 
     private DepartmentDto toDto(Department department) {
-        return new DepartmentDto(department.getId(), department.getName(), department.getDescription());
+        DepartmentDto dto = new DepartmentDto(department.getId(), department.getName(), department.getDescription());
+        try {
+            dto.setMemberCount(userRepo.countByDepartmentId(department.getId()));
+        } catch (Exception e) {
+            dto.setMemberCount(0L);
+        }
+        return dto;
     }
 }

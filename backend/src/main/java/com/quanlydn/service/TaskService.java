@@ -26,7 +26,13 @@ public class TaskService {
     private UserRepo userRepo;
 
     public List<TaskDto> getAllTasks() {
-        List<Task> tasks = taskRepo.findAll();
+        Long companyId = com.quanlydn.util.SecurityUtil.getCurrentCompanyId();
+        List<Task> tasks;
+        if (companyId != null) {
+            tasks = taskRepo.findByCompanyId(companyId);
+        } else {
+            tasks = taskRepo.findAll();
+        }
 
         return tasks.stream()
                 .map(this::toDto)
@@ -67,6 +73,7 @@ public class TaskService {
         task.setDeadline(dto.getDeadline());
         task.setStatus("todo");
         task.setCreatedBy(creator);
+        task.setCompanyId(creator.getCompanyId());
 
         if (dto.getProjectId() != null) {
             Project project = projectRepo.findById(dto.getProjectId())
@@ -113,6 +120,7 @@ public class TaskService {
         }
         if (task.getAssignedTo() != null) {
             dto.setAssignedToName(task.getAssignedTo().getFullname());
+            dto.setAssignedToId(task.getAssignedTo().getId());
         }
         if (task.getCreatedBy() != null) {
             dto.setCreatedByName(task.getCreatedBy().getFullname());

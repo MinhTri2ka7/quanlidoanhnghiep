@@ -8,8 +8,8 @@ spring:
   mail:
     host: smtp.gmail.com
     port: 587
-    username: your-email@gmail.com
-    password: your-app-password
+    username: "minhtri1012007@gmail.com"
+    password: "wvxn xetz tmib nfur"
     properties:
       mail:
         smtp:
@@ -29,3 +29,10 @@ logging:
   level:
     root: INFO
     com.quanlydn: DEBUG
+
+rate-limit:
+  enabled: true
+  limit: 100
+  duration-seconds: 60
+
+

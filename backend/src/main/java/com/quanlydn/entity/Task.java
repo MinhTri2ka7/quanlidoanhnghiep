@@ -40,6 +40,9 @@ public class Task {
     @Column(name = "created_at")
     private LocalDateTime createdAt;
 
+    @Column(name = "company_id")
+    private Long companyId;
+
     @PrePersist
     public void prePersist() {
         createdAt = LocalDateTime.now();
@@ -123,5 +126,13 @@ public class Task {
 
     public void setCreatedAt(LocalDateTime createdAt) {
         this.createdAt = createdAt;
+    }
+
+    public Long getCompanyId() {
+        return companyId;
+    }
+
+    public void setCompanyId(Long companyId) {
+        this.companyId = companyId;
     }
 }

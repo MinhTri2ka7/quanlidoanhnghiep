@@ -14,6 +14,7 @@ import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 import com.quanlydn.util.TotpUtil;
@@ -58,7 +59,8 @@ public class UserController {
         return userService.getUserById(id);
     }
 
-    // POST /api/user — tạo user mới
+    // POST /api/user — chỉ Admin mới được tạo user mới
+    @PreAuthorize("hasRole('Admin')")
     @PostMapping
     public UserDto createUser(@Valid @RequestBody CreateUserDto userDto) {
         return userService.createUser(userDto);
@@ -70,14 +72,16 @@ public class UserController {
         return userService.updateUser(id, user);
     }
 
-    // DELETE /api/user/{id} — xóa user
+    // DELETE /api/user/{id} — chỉ Admin mới được xóa user
+    @PreAuthorize("hasRole('Admin')")
     @DeleteMapping("/{id}")
     public ResponseEntity<?> deleteUser(@PathVariable Long id) {
         userService.deleteUser(id);
         return ResponseEntity.ok(Map.of("message", "Xóa user thành công"));
     }
 
-    // PATCH /api/user/{id}/toggle-active — bật/tắt trạng thái active
+    // PATCH /api/user/{id}/toggle-active — chỉ Admin
+    @PreAuthorize("hasRole('Admin')")
     @PatchMapping("/{id}/toggle-active")
     public ResponseEntity<?> toggleActive(@PathVariable Long id) {
         userService.toggleActive(id);

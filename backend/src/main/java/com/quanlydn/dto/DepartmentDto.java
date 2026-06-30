@@ -11,6 +11,8 @@ public class DepartmentDto {
 
     private String description;
 
+    private Long memberCount;
+
     public DepartmentDto() {
     }
 
@@ -42,5 +44,13 @@ public class DepartmentDto {
 
     public void setDescription(String description) {
         this.description = description;
+    }
+
+    public Long getMemberCount() {
+        return memberCount;
+    }
+
+    public void setMemberCount(Long memberCount) {
+        this.memberCount = memberCount;
     }
 }

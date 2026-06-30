@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { setup2fa, enable2fa, disable2fa } from "../../utils/api.js";
+import { setup2fa, enable2fa, disable2fa, uploadAvatar, getStorageSize, updateUser } from "../../utils/api.js";
 
 const tabs = [
   { id: "general",      label: "Chung"     },
@@ -41,62 +41,236 @@ function SettingsPage() {
 }
 
 function GeneralSettings() {
-  const user = (() => { try { return JSON.parse(localStorage.getItem("user")); } catch { return null; } })();
+  const [user, setUser] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem("user")) || null;
+    } catch {
+      return null;
+    }
+  });
+
+  const [avatar, setAvatar] = useState(user?.avatar || "");
+  const [fullname, setFullname] = useState(user?.fullname || "");
+  const [phone, setPhone] = useState(user?.phone || "");
+  const [uploading, setUploading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+
+  const handleFileChange = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      setError("Vui lòng chọn một file hình ảnh (png, jpg, jpeg, gif...)");
+      return;
+    }
+
+    setUploading(true);
+    setError("");
+    setSuccess("");
+
+    try {
+      const res = await uploadAvatar(file);
+      const newAvatarUrl = res.avatarUrl;
+      setAvatar(newAvatarUrl);
+
+      const updatedUser = { ...user, avatar: newAvatarUrl };
+      localStorage.setItem("user", JSON.stringify(updatedUser));
+      setUser(updatedUser);
+
+      window.dispatchEvent(new CustomEvent("user-update", { detail: updatedUser }));
+      setSuccess("Tải ảnh đại diện lên thành công!");
+    } catch (err) {
+      setError(err.message || "Tải ảnh lên thất bại");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleSaveChanges = async (e) => {
+    e.preventDefault();
+    if (!user?.id) return;
+    setSaving(true);
+    setError("");
+    setSuccess("");
+    try {
+      const res = await updateUser(user.id, { fullname, phone, avatar });
+      const updatedUser = { ...user, fullname: res.fullname, phone: res.phone, avatar: res.avatar };
+      localStorage.setItem("user", JSON.stringify(updatedUser));
+      setUser(updatedUser);
+      window.dispatchEvent(new CustomEvent("user-update", { detail: updatedUser }));
+      setSuccess("Cập nhật thông tin cá nhân thành công!");
+    } catch (err) {
+      setError(err.message || "Lỗi khi cập nhật thông tin");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const isUrl = (str) => {
+    return str && (str.startsWith("http://") || str.startsWith("https://") || str.includes("/"));
+  };
 
   return (
-    <div style={card}>
+    <form onSubmit={handleSaveChanges} style={card}>
       <p style={{ fontSize: 14, fontWeight: 600, color: "var(--text)", marginBottom: 20 }}>Thông tin cá nhân</p>
 
+      {success && (
+        <div className="toast-success" style={{ marginBottom: 14 }}>{success}</div>
+      )}
+      {error && (
+        <div className="toast-error" style={{ marginBottom: 14 }}>{error}</div>
+      )}
+
       <div style={{ display: "flex", alignItems: "center", gap: 14, paddingBottom: 20, marginBottom: 20, borderBottom: "1px solid var(--border)" }}>
-        <div style={{ width: 52, height: 52, borderRadius: 10, background: "var(--accent-bg)", color: "var(--accent)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: 20 }}>
-          {user ? (user.fullname || user.email || "?")[0].toUpperCase() : "A"}
+        <div style={{ 
+          width: 52, 
+          height: 52, 
+          borderRadius: 10, 
+          background: "var(--accent-bg)", 
+          color: "var(--accent)", 
+          display: "flex", 
+          alignItems: "center", 
+          justifyContent: "center", 
+          fontWeight: 700, 
+          fontSize: 20,
+          overflow: "hidden"
+        }}>
+          {isUrl(avatar) ? (
+            <img src={avatar} alt="Avatar" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+          ) : (
+            (fullname || user?.email || "?")[0].toUpperCase()
+          )}
         </div>
         <div>
-          <p style={{ fontSize: 13, fontWeight: 500, color: "var(--text)" }}>{user?.fullname || "Admin User"}</p>
+          <p style={{ fontSize: 13, fontWeight: 500, color: "var(--text)" }}>{fullname || "Admin User"}</p>
           <p style={{ fontSize: 12, color: "var(--text-2)" }}>{user?.email || "admin@company.com"}</p>
-          <button style={{ marginTop: 4, fontSize: 12, color: "var(--accent)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>Đổi avatar</button>
+          
+          <label style={{ 
+            marginTop: 4, 
+            fontSize: 12, 
+            color: "var(--accent)", 
+            background: "none", 
+            border: "none", 
+            cursor: "pointer", 
+            padding: 0,
+            display: "inline-block"
+          }}>
+            {uploading ? "Đang tải..." : "Đổi avatar"}
+            <input 
+              type="file" 
+              accept="image/*" 
+              onChange={handleFileChange} 
+              style={{ display: "none" }} 
+              disabled={uploading}
+            />
+          </label>
         </div>
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 20 }}>
-        {[
-          { label: "Họ và tên", val: user?.fullname || "Admin User", type: "text" },
-          { label: "Email",     val: user?.email || "admin@company.com", type: "email" },
-          { label: "Số điện thoại", val: user?.phone || "0912 345 678", type: "tel" },
-          { label: "Vai trò",   val: user?.roleName || "Admin", type: "text" },
-        ].map(f => (
-          <div key={f.label}>
-            <label className="field-label">{f.label}</label>
-            <input className="field-input" type={f.type} defaultValue={f.val} />
-          </div>
-        ))}
+        <div>
+          <label className="field-label">Họ và tên</label>
+          <input className="field-input" type="text" value={fullname} onChange={e => setFullname(e.target.value)} required />
+        </div>
+        <div>
+          <label className="field-label">Email</label>
+          <input className="field-input" type="email" value={user?.email || ""} disabled style={{ opacity: 0.7, cursor: "not-allowed" }} />
+        </div>
+        <div>
+          <label className="field-label">Số điện thoại</label>
+          <input className="field-input" type="tel" value={phone} onChange={e => setPhone(e.target.value)} />
+        </div>
+        <div>
+          <label className="field-label">Vai trò</label>
+          <input className="field-input" type="text" value={user?.roleName || "Nhân viên"} disabled style={{ opacity: 0.7, cursor: "not-allowed" }} />
+        </div>
       </div>
 
-      <button className="btn-primary" style={{ width: "auto", padding: "0 20px" }}>Lưu thay đổi</button>
-    </div>
+      <button type="submit" className="btn-primary" style={{ width: "auto", padding: "0 20px" }} disabled={saving}>
+        {saving ? "Đang lưu..." : "Lưu thay đổi"}
+      </button>
+    </form>
   );
 }
 
 function WorkspaceSettings() {
+  const [storageBytes, setStorageBytes] = useState(0);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function fetchSize() {
+      try {
+        const size = await getStorageSize();
+        setStorageBytes(size);
+      } catch (err) {
+        console.warn("Không lấy được dung lượng S3: ", err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchSize();
+  }, []);
+
+  const formatBytes = (bytes, decimals = 2) => {
+    if (!bytes) return "0 Bytes";
+    const k = 1024;
+    const dm = decimals < 0 ? 0 : decimals;
+    const sizes = ["Bytes", "KB", "MB", "GB", "TB"];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + " " + sizes[i];
+  };
+
   return (
-    <div style={card}>
-      <p style={{ fontSize: 14, fontWeight: 600, color: "var(--text)", marginBottom: 20 }}>Cài đặt Workspace</p>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 14 }}>
-        <div>
-          <label className="field-label">Tên workspace</label>
-          <input className="field-input" type="text" defaultValue="QuanLyDN Production" />
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      <div style={card}>
+        <p style={{ fontSize: 14, fontWeight: 600, color: "var(--text)", marginBottom: 20 }}>Cài đặt Workspace</p>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 14 }}>
+          <div>
+            <label className="field-label">Tên workspace</label>
+            <input className="field-input" type="text" defaultValue="QuanLyDN Production" />
+          </div>
+          <div>
+            <label className="field-label">URL slug</label>
+            <input className="field-input" type="text" defaultValue="quanlydn-prod" />
+          </div>
         </div>
-        <div>
-          <label className="field-label">URL slug</label>
-          <input className="field-input" type="text" defaultValue="quanlydn-prod" />
+        <div style={{ marginBottom: 20 }}>
+          <label className="field-label">Mô tả</label>
+          <textarea className="field-input" defaultValue="Workspace chính cho hệ thống quản lý doanh nghiệp" rows={3}
+            style={{ height: "auto", padding: "10px 12px", resize: "none" }} />
+        </div>
+        <button className="btn-primary" style={{ width: "auto", padding: "0 20px" }}>Lưu thay đổi</button>
+      </div>
+
+      <div style={card}>
+        <p style={{ fontSize: 14, fontWeight: 600, color: "var(--text)", marginBottom: 16 }}>Dung lượng lưu trữ</p>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 20 }}>
+          <div style={{ flex: 1 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6, fontSize: 13 }}>
+              <span style={{ color: "var(--text-2)" }}>Dung lượng đã sử dụng (AWS S3 uploads/)</span>
+              <span style={{ fontWeight: 600, color: "var(--text)" }}>
+                {loading ? "Đang quét..." : formatBytes(storageBytes)}
+              </span>
+            </div>
+            
+            <div className="progress-track" style={{ height: 8 }}>
+              <div 
+                className="progress-fill" 
+                style={{ 
+                  width: loading ? "0%" : `${Math.min(100, Math.max(2, (storageBytes / (1024 * 1024 * 1024))) * 100)}%`, // percent of 1GB for visual bar
+                  background: "var(--accent)"
+                }} 
+              />
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between", marginTop: 6, fontSize: 11, color: "var(--text-3)" }}>
+              <span>Dung lượng đã dùng: {loading ? "..." : formatBytes(storageBytes)}</span>
+              <span>Tổng hạn mức: Không giới hạn</span>
+            </div>
+          </div>
         </div>
       </div>
-      <div style={{ marginBottom: 20 }}>
-        <label className="field-label">Mô tả</label>
-        <textarea className="field-input" defaultValue="Workspace chính cho hệ thống quản lý doanh nghiệp" rows={3}
-          style={{ height: "auto", padding: "10px 12px", resize: "none" }} />
-      </div>
-      <button className="btn-primary" style={{ width: "auto", padding: "0 20px" }}>Lưu thay đổi</button>
     </div>
   );
 }

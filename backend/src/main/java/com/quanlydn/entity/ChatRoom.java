@@ -21,6 +21,20 @@ public class ChatRoom {
     @Column(name = "created_at")
     private LocalDateTime createdAt;
 
+    @Column(length = 50)
+    private String type; // PRIVATE, GROUP, PROJECT, DEPARTMENT
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "project_id")
+    private Project project;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "department_id")
+    private Department department;
+
+    @Column(name = "company_id")
+    private Long companyId;
+
     @PrePersist
     public void prePersist() {
         createdAt = LocalDateTime.now();
@@ -56,5 +70,37 @@ public class ChatRoom {
 
     public void setCreatedAt(LocalDateTime createdAt) {
         this.createdAt = createdAt;
+    }
+
+    public String getType() {
+        return type;
+    }
+
+    public void setType(String type) {
+        this.type = type;
+    }
+
+    public Project getProject() {
+        return project;
+    }
+
+    public void setProject(Project project) {
+        this.project = project;
+    }
+
+    public Department getDepartment() {
+        return department;
+    }
+
+    public void setDepartment(Department department) {
+        this.department = department;
+    }
+
+    public Long getCompanyId() {
+        return companyId;
+    }
+
+    public void setCompanyId(Long companyId) {
+        this.companyId = companyId;
     }
 }

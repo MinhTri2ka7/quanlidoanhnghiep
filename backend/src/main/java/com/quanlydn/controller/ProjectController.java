@@ -2,6 +2,12 @@ package com.quanlydn.controller;
 
 import com.quanlydn.dto.CreateProjectDto;
 import com.quanlydn.dto.ProjectDto;
+import com.quanlydn.entity.Project;
+import com.quanlydn.entity.ProjectMember;
+import com.quanlydn.entity.User;
+import com.quanlydn.repository.ProjectMemberRepo;
+import com.quanlydn.repository.ProjectRepo;
+import com.quanlydn.repository.UserRepo;
 import com.quanlydn.service.ProjectService;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -19,6 +25,15 @@ public class ProjectController {
     @Autowired
     private ProjectService projectService;
 
+    @Autowired
+    private ProjectMemberRepo projectMemberRepo;
+
+    @Autowired
+    private ProjectRepo projectRepo;
+
+    @Autowired
+    private UserRepo userRepo;
+
     // GET /api/project — lấy danh sách tất cả dự án
     @GetMapping
     public List<ProjectDto> getAllProjects() {
@@ -32,6 +47,21 @@ public class ProjectController {
             throw new IllegalArgumentException("Id dự án không được để trống");
         }
         return projectService.getProjectById(id);
+    }
+
+    // GET /api/project/{id}/members — lấy danh sách thành viên dự án
+    @GetMapping("/{id}/members")
+    public List<Map<String, Object>> getProjectMembers(@PathVariable Long id) {
+        List<ProjectMember> members = projectMemberRepo.findByProjectId(id);
+        return members.stream().map(m -> {
+            Map<String, Object> map = new java.util.LinkedHashMap<>();
+            map.put("id", m.getUser().getId());
+            map.put("fullname", m.getUser().getFullname());
+            map.put("email", m.getUser().getEmail());
+            map.put("roleName", m.getUser().getRole() != null ? m.getUser().getRole().getName() : null);
+            map.put("isActive", m.getUser().getIsActive());
+            return map;
+        }).toList();
     }
 
     // POST /api/project — tạo dự án mới (createdBy truyền qua request param hoặc mặc định là 1)
@@ -83,5 +113,50 @@ public class ProjectController {
         }
         projectService.deleteProject(id);
         return ResponseEntity.ok(Map.of("message", "Xóa dự án thành công"));
+    }
+
+    // POST /api/project/{id}/members — thêm thành viên vào dự án
+    @PostMapping("/{id}/members")
+    public ResponseEntity<?> addProjectMember(
+            @PathVariable Long id,
+            @RequestBody Map<String, Long> body) {
+        
+        Long userId = body.get("userId");
+        if (userId == null) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Thiếu userId"));
+        }
+
+        Project project = projectRepo.findById(id)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy dự án với id: " + id));
+        User user = userRepo.findById(userId)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy nhân viên với id: " + userId));
+
+        // Kiểm tra xem đã là thành viên chưa
+        com.quanlydn.entity.ProjectMemberId pmId = new com.quanlydn.entity.ProjectMemberId(id, userId);
+        if (projectMemberRepo.existsById(pmId)) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Nhân viên đã có trong dự án này"));
+        }
+
+        ProjectMember member = new ProjectMember();
+        member.setProject(project);
+        member.setUser(user);
+        projectMemberRepo.save(member);
+
+        return ResponseEntity.ok(Map.of("message", "Thêm thành viên vào dự án thành công"));
+    }
+
+    // DELETE /api/project/{id}/members/{userId} — xóa thành viên khỏi dự án
+    @DeleteMapping("/{id}/members/{userId}")
+    public ResponseEntity<?> removeProjectMember(
+            @PathVariable Long id,
+            @PathVariable Long userId) {
+
+        com.quanlydn.entity.ProjectMemberId pmId = new com.quanlydn.entity.ProjectMemberId(id, userId);
+        if (!projectMemberRepo.existsById(pmId)) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Nhân viên không thuộc dự án này"));
+        }
+
+        projectMemberRepo.deleteById(pmId);
+        return ResponseEntity.ok(Map.of("message", "Xóa thành viên khỏi dự án thành công"));
     }
 }

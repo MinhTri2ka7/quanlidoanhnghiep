@@ -76,19 +76,22 @@ public class DataInitializer implements CommandLineRunner {
             techDept = new Department();
             techDept.setName("Kỹ thuật");
             techDept.setDescription("Bộ phận phát triển phần mềm và hạ tầng công nghệ");
+            techDept.setCompanyId(1L);
             departmentRepo.save(techDept);
 
             salesDept = new Department();
             salesDept.setName("Kinh doanh");
             salesDept.setDescription("Bộ phận phát triển thị trường và kinh doanh sản phẩm");
+            salesDept.setCompanyId(1L);
             departmentRepo.save(salesDept);
 
             designDept = new Department();
             designDept.setName("Thiết kế");
             designDept.setDescription("Bộ phận thiết kế giao diện UX/UI và truyền thông sáng tạo");
+            designDept.setCompanyId(1L);
             departmentRepo.save(designDept);
 
-            System.out.println("-> Đã khởi tạo 3 phòng ban mẫu (Kỹ thuật, Kinh doanh, Thiết kế).");
+            System.out.println("-> Đã khởi tạo 3 phòng ban mẫu (Kỹ thuật, Kinh doanh, Thiết kế) cho TechCorp.");
         } else {
             techDept = departmentRepo.findById(1L).orElse(null);
             salesDept = departmentRepo.findById(2L).orElse(null);
@@ -99,30 +102,33 @@ public class DataInitializer implements CommandLineRunner {
         User adminUser = null;
         User empA = null;
         User empB = null;
+        User otherAdmin = null;
 
         if (userRepo.count() == 0) {
-            // Admin account
+            // Admin account TechCorp
             adminUser = new User();
             adminUser.setFullname("TechCorp Admin");
-            adminUser.setEmail("admin@techcorp.com");
+            adminUser.setEmail("minhtri1012007@gmail.com");
             adminUser.setPassword(passwordEncoder.encode("password123"));
             adminUser.setPhone("0123456789");
             adminUser.setAvatar("A");
             adminUser.setIsActive(true);
             adminUser.setRole(adminRole);
             adminUser.setDepartment(techDept);
+            adminUser.setCompanyId(1L);
             userRepo.save(adminUser);
 
-            // Employee A (Kỹ thuật)
+            // Manager A (Kỹ thuật) — Project Owner
             empA = new User();
             empA.setFullname("Nguyễn Văn A");
-            empA.setEmail("nva@techcorp.com");
+            empA.setEmail("minhtriclone1012007@gmail.com");
             empA.setPassword(passwordEncoder.encode("password123"));
             empA.setPhone("0987654321");
             empA.setAvatar("A");
             empA.setIsActive(true);
-            empA.setRole(employeeRole);
+            empA.setRole(managerRole); // Manager role
             empA.setDepartment(techDept);
+            empA.setCompanyId(1L);
             userRepo.save(empA);
 
             // Employee B (Kinh doanh)
@@ -135,13 +141,36 @@ public class DataInitializer implements CommandLineRunner {
             empB.setIsActive(true);
             empB.setRole(employeeRole);
             empB.setDepartment(salesDept);
+            empB.setCompanyId(1L);
             userRepo.save(empB);
 
-            System.out.println("-> Đã tạo 3 tài khoản mẫu (Admin, nva@techcorp.com, ttb@techcorp.com). Mật khẩu: password123");
+            // Admin account OtherCorp (ID = 4)
+            otherAdmin = new User();
+            otherAdmin.setFullname("OtherCorp Admin");
+            otherAdmin.setEmail("otheradmin@gmail.com");
+            otherAdmin.setPassword(passwordEncoder.encode("password123"));
+            otherAdmin.setPhone("0111222333");
+            otherAdmin.setAvatar("O");
+            otherAdmin.setIsActive(true);
+            otherAdmin.setRole(adminRole);
+            otherAdmin.setCompanyId(4L);
+            userRepo.save(otherAdmin);
+
+            System.out.println("-> Đã tạo các tài khoản mẫu cho hai công ty.");
         } else {
-            adminUser = userRepo.findByEmail("admin@techcorp.com").orElse(null);
-            empA = userRepo.findByEmail("nva@techcorp.com").orElse(null);
+            adminUser = userRepo.findByEmail("minhtri1012007@gmail.com").orElse(null);
+            empA = userRepo.findByEmail("minhtriclone1012007@gmail.com").orElse(null);
             empB = userRepo.findByEmail("ttb@techcorp.com").orElse(null);
+            otherAdmin = userRepo.findByEmail("otheradmin@gmail.com").orElse(null);
+        }
+
+        // Tạo thêm phòng ban và dự án cho OtherCorp (ID 4)
+        if (departmentRepo.count() <= 3 && otherAdmin != null) {
+            Department otherDept = new Department();
+            otherDept.setName("Nhân sự");
+            otherDept.setDescription("Bộ phận tuyển dụng và đào tạo nhân sự");
+            otherDept.setCompanyId(4L);
+            departmentRepo.save(otherDept);
         }
 
         // 4. Tạo các Dự án mẫu (Projects)
@@ -157,6 +186,7 @@ public class DataInitializer implements CommandLineRunner {
             prj1.setEndDate(LocalDate.now().plusMonths(3));
             prj1.setStatus("active");
             prj1.setCreatedBy(adminUser);
+            prj1.setCompanyId(1L);
             projectRepo.save(prj1);
 
             // Project 2
@@ -167,9 +197,23 @@ public class DataInitializer implements CommandLineRunner {
             prj2.setEndDate(LocalDate.now().plusDays(15));
             prj2.setStatus("completed");
             prj2.setCreatedBy(adminUser);
+            prj2.setCompanyId(1L);
             projectRepo.save(prj2);
 
-            System.out.println("-> Đã khởi tạo 2 dự án mẫu.");
+            // Project cho OtherCorp
+            if (otherAdmin != null) {
+                Project otherPrj = new Project();
+                otherPrj.setName("Phát triển Nhân lực 2026");
+                otherPrj.setDescription("Dự án xây dựng quy trình tuyển dụng và đánh giá năng lực nhân viên mới.");
+                otherPrj.setStartDate(LocalDate.now());
+                otherPrj.setEndDate(LocalDate.now().plusMonths(6));
+                otherPrj.setStatus("active");
+                otherPrj.setCreatedBy(otherAdmin);
+                otherPrj.setCompanyId(4L);
+                projectRepo.save(otherPrj);
+            }
+
+            System.out.println("-> Đã khởi tạo các dự án mẫu.");
         } else {
             prj1 = projectRepo.findById(1L).orElse(null);
             prj2 = projectRepo.findById(2L).orElse(null);
@@ -187,6 +231,7 @@ public class DataInitializer implements CommandLineRunner {
             t1.setProject(prj1);
             t1.setAssignedTo(empA);
             t1.setCreatedBy(adminUser);
+            t1.setCompanyId(1L);
             taskRepo.save(t1);
 
             // Task 2 for Project 1 (Todo)
@@ -199,6 +244,7 @@ public class DataInitializer implements CommandLineRunner {
             t2.setProject(prj1);
             t2.setAssignedTo(empA);
             t2.setCreatedBy(adminUser);
+            t2.setCompanyId(1L);
             taskRepo.save(t2);
 
             System.out.println("-> Đã khởi tạo 2 task mẫu thuộc dự án ERP.");

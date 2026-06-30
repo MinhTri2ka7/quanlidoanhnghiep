@@ -13,6 +13,7 @@ public class UpdateUserDto {
     private String avatar;
     private Long roleId;
     private Long departmentId;
+    private Boolean removeDepartment;
 
     public String getFullname() {
         return fullname;
@@ -52,5 +53,13 @@ public class UpdateUserDto {
 
     public void setDepartmentId(Long departmentId) {
         this.departmentId = departmentId;
+    }
+
+    public Boolean getRemoveDepartment() {
+        return removeDepartment;
+    }
+
+    public void setRemoveDepartment(Boolean removeDepartment) {
+        this.removeDepartment = removeDepartment;
     }
 }

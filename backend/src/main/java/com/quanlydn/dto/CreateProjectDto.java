@@ -15,6 +15,9 @@ public class CreateProjectDto {
     private LocalDate startDate;
 
     private LocalDate endDate;
+    private Long managerId;
+    private String roadmap;
+    private String notes;
 
     public String getName() {
         return name;
@@ -46,5 +49,29 @@ public class CreateProjectDto {
 
     public void setEndDate(LocalDate endDate) {
         this.endDate = endDate;
+    }
+
+    public Long getManagerId() {
+        return managerId;
+    }
+
+    public void setManagerId(Long managerId) {
+        this.managerId = managerId;
+    }
+
+    public String getRoadmap() {
+        return roadmap;
+    }
+
+    public void setRoadmap(String roadmap) {
+        this.roadmap = roadmap;
+    }
+
+    public String getNotes() {
+        return notes;
+    }
+
+    public void setNotes(String notes) {
+        this.notes = notes;
     }
 }

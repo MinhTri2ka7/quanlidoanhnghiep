@@ -19,9 +19,9 @@ function Topbar({ isSidebarCollapsed }) {
   const location = useLocation();
   const [theme, setTheme] = useState(() => localStorage.getItem("theme") || "light");
 
-  const user = (() => {
+  const [user, setUser] = useState(() => {
     try { return JSON.parse(localStorage.getItem("user")); } catch { return null; }
-  })();
+  });
 
   const pageTitle = Object.entries(PAGE_TITLES)
     .sort((a, b) => b[0].length - a[0].length)
@@ -38,6 +38,12 @@ function Topbar({ isSidebarCollapsed }) {
     function onThemeChange(e) { if (e.detail) setTheme(e.detail); }
     window.addEventListener("theme-change", onThemeChange);
     return () => window.removeEventListener("theme-change", onThemeChange);
+  }, []);
+
+  useEffect(() => {
+    function onUserUpdate(e) { if (e.detail) setUser(e.detail); }
+    window.addEventListener("user-update", onUserUpdate);
+    return () => window.removeEventListener("user-update", onUserUpdate);
   }, []);
 
   function toggleTheme() {
@@ -86,8 +92,26 @@ function Topbar({ isSidebarCollapsed }) {
           )}
         </button>
 
-        <div style={{ width: 28, height: 28, borderRadius: 6, background: "var(--accent-bg)", color: "var(--accent)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: 12, cursor: "pointer", marginLeft: 4 }}>
-          {user ? (user.fullname || user.email || "?")[0].toUpperCase() : "?"}
+        <div style={{ 
+          width: 28, 
+          height: 28, 
+          borderRadius: 6, 
+          background: "var(--accent-bg)", 
+          color: "var(--accent)", 
+          display: "flex", 
+          alignItems: "center", 
+          justifyContent: "center", 
+          fontWeight: 700, 
+          fontSize: 12, 
+          cursor: "pointer", 
+          marginLeft: 4,
+          overflow: "hidden" 
+        }}>
+          {user && user.avatar && (user.avatar.startsWith("http://") || user.avatar.startsWith("https://") || user.avatar.includes("/")) ? (
+            <img src={user.avatar} alt="Avatar" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+          ) : (
+            user ? (user.fullname || user.email || "?")[0].toUpperCase() : "?"
+          )}
         </div>
       </div>
     </header>

@@ -32,7 +32,13 @@ public class UserService {
     private PasswordEncoder passwordEncoder;
 
     public List<UserDto> getAllUsers() {
-        List<User> users = userRepo.findAll();
+        Long companyId = com.quanlydn.util.SecurityUtil.getCurrentCompanyId();
+        List<User> users;
+        if (companyId != null) {
+            users = userRepo.findByCompanyId(companyId);
+        } else {
+            users = userRepo.findAll();
+        }
 
         return users.stream()
                 .map(this::toDto)
@@ -51,18 +57,26 @@ public class UserService {
             throw new RuntimeException("Email đã tồn tại: " + dto.getEmail());
         }
 
-
         User user = new User();
         user.setFullname(dto.getFullname());
         user.setEmail(dto.getEmail());
         user.setPassword(passwordEncoder.encode(dto.getPassword()));
         user.setPhone(dto.getPhone());
 
-        // Lookup Role entity from DB (default roleId = 1 nếu không truyền)
-        Long roleId = dto.getRoleId() != null ? dto.getRoleId() : 1L;
-        Role role = roleRepo.findById(roleId)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy role với id: " + roleId));
-        user.setRole(role);
+        User currentUser = com.quanlydn.util.SecurityUtil.getCurrentUser();
+        if (currentUser != null) {
+            user.setCompanyId(currentUser.getCompanyId());
+            // Lookup Role entity from DB (default roleId = 1 nếu không truyền)
+            Long roleId = dto.getRoleId() != null ? dto.getRoleId() : 1L;
+            Role role = roleRepo.findById(roleId)
+                    .orElseThrow(() -> new RuntimeException("Không tìm thấy role với id: " + roleId));
+            user.setRole(role);
+        } else {
+            // Registration case: force role Admin (3L)
+            Role adminRole = roleRepo.findById(3L)
+                    .orElseThrow(() -> new RuntimeException("Không tìm thấy role Admin"));
+            user.setRole(adminRole);
+        }
 
         if (dto.getDepartmentId() != null) {
             Department department = departmentRepo.findById(dto.getDepartmentId())
@@ -71,6 +85,13 @@ public class UserService {
         }
 
         User saved = userRepo.save(user);
+
+        if (currentUser == null) {
+            // Registration: set companyId to saved user's id
+            saved.setCompanyId(saved.getId());
+            saved = userRepo.save(saved);
+        }
+
         return toDto(saved);
     }
 
@@ -92,7 +113,9 @@ public class UserService {
                     .orElseThrow(() -> new RuntimeException("Không tìm thấy role với id: " + dto.getRoleId()));
             user.setRole(role);
         }
-        if (dto.getDepartmentId() != null) {
+        if (Boolean.TRUE.equals(dto.getRemoveDepartment())) {
+            user.setDepartment(null);
+        } else if (dto.getDepartmentId() != null) {
             Department department = departmentRepo.findById(dto.getDepartmentId())
                     .orElseThrow(() -> new RuntimeException("Không tìm thấy department với id: " + dto.getDepartmentId()));
             user.setDepartment(department);
@@ -129,6 +152,7 @@ public class UserService {
         dto.setAvatar(user.getAvatar());
         dto.setIsActive(user.getIsActive());
         dto.setIsTwoFactorEnabled(user.getIsTwoFactorEnabled());
+        dto.setCompanyId(user.getCompanyId());
 
         if (user.getRole() != null) {
             dto.setRoleName(user.getRole().getName());

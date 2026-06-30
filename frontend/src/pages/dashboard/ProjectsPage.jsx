@@ -1,45 +1,64 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { getAllProjects, createProject } from "../../utils/api.js";
+import { getAllProjects, createProject, getAllUsers } from "../../utils/api.js";
+import { useCurrentUser } from "../../utils/useCurrentUser.js";
 
 function ProjectsPage() {
-  const [projects, setProjects] = useState([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState(null);
+  const { user, isAdmin, isManager } = useCurrentUser();
 
-  // States for creating a project
-  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const [newProjectName, setNewProjectName] = useState("");
+  const [projects, setProjects]       = useState([]);
+  const [users, setUsers]             = useState([]);
+  const [isLoading, setIsLoading]     = useState(false);
+  const [error, setError]             = useState(null);
+
+  // States for creating a project (chỉ Admin dùng)
+  const [isCreateModalOpen, setIsCreateModalOpen]   = useState(false);
+  const [newProjectName, setNewProjectName]         = useState("");
   const [newProjectDescription, setNewProjectDescription] = useState("");
   const [newProjectStartDate, setNewProjectStartDate] = useState(new Date().toISOString().substring(0, 10));
-  const [newProjectEndDate, setNewProjectEndDate] = useState(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().substring(0, 10));
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [newProjectEndDate, setNewProjectEndDate]   = useState(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().substring(0, 10));
+  const [newProjectManagerId, setNewProjectManagerId] = useState("");
+  const [newProjectRoadmap, setNewProjectRoadmap]   = useState("");
+  const [newProjectNotes, setNewProjectNotes]       = useState("");
+  const [isSubmitting, setIsSubmitting]             = useState(false);
 
   useEffect(() => {
-    async function loadProjects() {
+    async function loadData() {
       setIsLoading(true);
       setError(null);
       try {
-        const data = await getAllProjects();
+        const [projectsData, usersData] = await Promise.all([
+          getAllProjects(),
+          getAllUsers().catch(() => [])
+        ]);
+        setUsers(usersData || []);
 
-        // Map DTO fields to local fields
-        const mappedProjects = data.map((proj) => ({
-          id: proj.id,
-          name: proj.name,
-          description: proj.description,
-          priority: "medium", // Mặc định do mock data
-          status: proj.status || "active",
-          progress: proj.status === "completed" ? 100 : 45, // Giả lập progress
-          taskCount: 15,
-          taskCompleted: proj.status === "completed" ? 15 : 7,
-          deadline: proj.endDate ? proj.endDate.substring(0, 10) : "Không thời hạn",
-          members: [
-            { id: "m1", avatar: "A" },
-            { id: "m2", avatar: "B" }
-          ]
+        let mapped = (projectsData || []).map((proj) => ({
+          id:            proj.id,
+          name:          proj.name,
+          description:   proj.description,
+          priority:      "medium",
+          status:        proj.status || "active",
+          progress:      proj.progress || 0,
+          taskCount:     proj.taskCount || 0,
+          taskCompleted: proj.taskCompleted || 0,
+          deadline:      proj.endDate ? proj.endDate.substring(0, 10) : "Không thời hạn",
+          managerId:     proj.managerId,
+          managerName:   proj.managerName,
+          roadmap:       proj.roadmap,
+          notes:         proj.notes,
+          members:       (proj.members || []).map(m => ({
+            id: m.id,
+            avatar: m.avatar && (m.avatar.startsWith("http") || m.avatar.includes("/")) ? m.avatar : (m.fullname || "?")[0].toUpperCase()
+          }))
         }));
 
-        setProjects(mappedProjects);
+        // ─── Manager chỉ thấy dự án được Admin giao cho họ quản lý ───
+        if (isManager && user?.id) {
+          mapped = mapped.filter(p => String(p.managerId) === String(user.id));
+        }
+
+        setProjects(mapped);
       } catch (err) {
         setError(err.message);
       } finally {
@@ -47,8 +66,8 @@ function ProjectsPage() {
       }
     }
 
-    loadProjects();
-  }, []);
+    loadData();
+  }, [isManager, user?.id]);
 
   async function handleCreateProject(event) {
     event.preventDefault();
@@ -60,7 +79,10 @@ function ProjectsPage() {
         name: newProjectName.trim(),
         description: newProjectDescription.trim(),
         startDate: newProjectStartDate,
-        endDate: newProjectEndDate
+        endDate: newProjectEndDate,
+        managerId: newProjectManagerId ? parseInt(newProjectManagerId, 10) : null,
+        roadmap: newProjectRoadmap.trim(),
+        notes: newProjectNotes.trim()
       });
 
       const mappedPrj = {
@@ -73,6 +95,10 @@ function ProjectsPage() {
         taskCount: 0,
         taskCompleted: 0,
         deadline: createdPrj.endDate ? createdPrj.endDate.substring(0, 10) : "Không thời hạn",
+        managerId: createdPrj.managerId,
+        managerName: createdPrj.managerName,
+        roadmap: createdPrj.roadmap,
+        notes: createdPrj.notes,
         members: [{ id: "m1", avatar: "A" }]
       };
 
@@ -80,6 +106,9 @@ function ProjectsPage() {
       setIsCreateModalOpen(false);
       setNewProjectName("");
       setNewProjectDescription("");
+      setNewProjectManagerId("");
+      setNewProjectRoadmap("");
+      setNewProjectNotes("");
     } catch (err) {
       alert(err.message || "Lỗi khi tạo dự án");
     } finally {
@@ -99,6 +128,12 @@ function ProjectsPage() {
     return "Thấp";
   }
 
+  // Lọc danh sách users chỉ lấy Manager để Admin chọn làm quản lý dự án
+  const managerUsers = users.filter(u => {
+    const rn = u.role?.name || u.roleName || "";
+    return rn === "Manager";
+  });
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
       {/* Page Header */}
@@ -106,21 +141,51 @@ function ProjectsPage() {
         <div>
           <h1 style={{ fontSize: 16, fontWeight: 600, color: "var(--text)", margin: 0 }}>Dự án</h1>
           <p style={{ fontSize: 13, color: "var(--text-2)", marginTop: 4, marginBottom: 0 }}>
-            {isLoading ? "Đang tải..." : `${projects.length} dự án trong workspace`}
+            {isLoading
+              ? "Đang tải..."
+              : isManager
+                ? `${projects.length} dự án được giao cho bạn quản lý`
+                : `${projects.length} dự án trong workspace`}
           </p>
         </div>
-        <button
-          onClick={() => setIsCreateModalOpen(true)}
-          className="btn-primary"
-          style={{ width: "auto", padding: "0 14px", gap: 6, display: "flex", alignItems: "center" }}
-        >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <line x1="12" y1="5" x2="12" y2="19" />
-            <line x1="5" y1="12" x2="19" y2="12" />
-          </svg>
-          Tạo dự án
-        </button>
+
+        {/* Chỉ Admin mới thấy nút Tạo dự án */}
+        {isAdmin && (
+          <button
+            onClick={() => setIsCreateModalOpen(true)}
+            className="btn-primary"
+            style={{ width: "auto", padding: "0 14px", gap: 6, display: "flex", alignItems: "center" }}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <line x1="12" y1="5" x2="12" y2="19" />
+              <line x1="5" y1="12" x2="19" y2="12" />
+            </svg>
+            Tạo dự án
+          </button>
+        )}
       </div>
+
+      {/* Thông báo với Manager */}
+      {isManager && !isLoading && (
+        <div style={{
+          background: "var(--surface)",
+          border: "1px solid var(--border)",
+          borderRadius: 10,
+          padding: "12px 16px",
+          display: "flex",
+          alignItems: "center",
+          gap: 10,
+          fontSize: 13,
+          color: "var(--text-2)"
+        }}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="10"/>
+            <line x1="12" y1="8" x2="12" y2="12"/>
+            <line x1="12" y1="16" x2="12.01" y2="16"/>
+          </svg>
+          <span>Hiển thị các dự án mà Admin đã chỉ định bạn làm quản lý.</span>
+        </div>
+      )}
 
       {/* Loading state */}
       {isLoading && (
@@ -140,8 +205,25 @@ function ProjectsPage() {
         </div>
       )}
 
+      {/* Empty state for Manager */}
+      {!isLoading && !error && projects.length === 0 && isManager && (
+        <div style={{
+          display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+          padding: 64, gap: 12, color: "var(--text-2)"
+        }}>
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.4 }}>
+            <rect x="2" y="7" width="20" height="14" rx="2" />
+            <path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2" />
+          </svg>
+          <p style={{ fontSize: 14, textAlign: "center", margin: 0 }}>
+            Chưa có dự án nào được giao cho bạn.<br />
+            Vui lòng liên hệ Admin để được phân công quản lý dự án.
+          </p>
+        </div>
+      )}
+
       {/* Project Cards */}
-      {!isLoading && !error && (
+      {!isLoading && !error && projects.length > 0 && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {projects.map((project) => (
             <Link
@@ -149,7 +231,7 @@ function ProjectsPage() {
               to={`/dashboard/projects/${project.id}`}
               style={{
                 background: "var(--surface)",
-                border: "1px solid var(--border)",
+                border: "2px solid var(--border)",
                 borderRadius: 12,
                 padding: 18,
                 textDecoration: "none",
@@ -172,9 +254,18 @@ function ProjectsPage() {
               <h3 style={{ fontSize: 14, fontWeight: 600, color: "var(--text)", marginBottom: 4, marginTop: 8 }}>
                 {project.name}
               </h3>
-              <p className="line-clamp-2" style={{ fontSize: 12, color: "var(--text-2)", marginBottom: 10 }}>
+              <p className="line-clamp-2" style={{ fontSize: 12, color: "var(--text-2)", marginBottom: 6 }}>
                 {project.description}
               </p>
+              {project.managerName && (
+                <div style={{ fontSize: 12, color: "var(--accent)", marginBottom: 10, display: "flex", alignItems: "center", gap: 4 }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                    <circle cx="12" cy="7" r="4" />
+                  </svg>
+                  <span>PM: {project.managerName}</span>
+                </div>
+              )}
 
               {/* Progress */}
               <div className="mb-3">
@@ -221,8 +312,8 @@ function ProjectsPage() {
         </div>
       )}
 
-      {/* Create Project Modal */}
-      {isCreateModalOpen && (
+      {/* Create Project Modal — chỉ Admin mới dùng được */}
+      {isAdmin && isCreateModalOpen && (
         <div className="modal-overlay" onClick={() => setIsCreateModalOpen(false)}>
           <div className="modal-panel" onClick={e => e.stopPropagation()}>
             {/* Header */}
@@ -253,6 +344,28 @@ function ProjectsPage() {
                     style={{ height: "auto", padding: "10px 12px", resize: "none" }} />
                 </div>
 
+                {/* Chỉ chọn Manager làm trưởng dự án */}
+                <div>
+                  <label className="field-label" htmlFor="proj-manager">
+                    Trưởng dự án (Manager) <span style={{ color: "var(--danger)" }}>*</span>
+                  </label>
+                  <select id="proj-manager" className="field-input" required
+                    value={newProjectManagerId} onChange={e => setNewProjectManagerId(e.target.value)}>
+                    <option value="">-- Chọn Manager làm quản lý --</option>
+                    {managerUsers.length === 0 && (
+                      <option disabled value="">Không có Manager trong hệ thống</option>
+                    )}
+                    {managerUsers.map(u => (
+                      <option key={u.id} value={u.id}>{u.fullname} ({u.email})</option>
+                    ))}
+                  </select>
+                  {managerUsers.length === 0 && (
+                    <p style={{ fontSize: 12, color: "var(--danger)", marginTop: 4 }}>
+                      ⚠ Chưa có tài khoản Manager nào. Vui lòng tạo tài khoản Manager trước.
+                    </p>
+                  )}
+                </div>
+
                 <div className="form-row-2">
                   <div>
                     <label className="field-label" htmlFor="proj-start">Ngày bắt đầu</label>
@@ -271,7 +384,7 @@ function ProjectsPage() {
               <div className="modal-footer">
                 <button type="button" className="btn-secondary" onClick={() => setIsCreateModalOpen(false)}>Hủy</button>
                 <button type="submit" className="btn-primary" style={{ width: "auto", padding: "0 20px" }}
-                  disabled={!newProjectName.trim() || isSubmitting}>
+                  disabled={!newProjectName.trim() || !newProjectManagerId || isSubmitting}>
                   {isSubmitting ? "Đang xử lý..." : "Tạo dự án"}
                 </button>
               </div>
@@ -284,4 +397,3 @@ function ProjectsPage() {
 }
 
 export default ProjectsPage;
-
